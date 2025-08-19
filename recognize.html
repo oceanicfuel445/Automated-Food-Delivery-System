@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2, h3 {
+            color: #333333;
+        }
+
+        .video-container {
+            margin: 20px 0;
+        }
+
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        #foodItems {
+            margin-top: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            font-size: 18px;
+            color: #555555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face Recognition</h1>
+        <div class="video-container">
+            <video id="video" width="640" height="480" autoplay></video>
+            <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+        </div>
+        <div id="result"></div>
+        <div id="foodItems" style="display:none;">
+            <h2>Selected Food Items</h2>
+            <ul id="foodList"></ul>
+            <h3 id="finalCost"></h3>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const result = document.getElementById('result');
+            const foodItems = document.getElementById('foodItems');
+            const foodList = document.getElementById('foodList');
+            const finalCost = document.getElementById('finalCost');
+
+            // Request access to the webcam
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(error => {
+                    console.error('Error accessing webcam:', error);
+                });
+
+            function captureFrame() {
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                return canvas.toDataURL('image/png');
+            }
+
+            function checkFace() {
+                const imageData = captureFrame();
+                fetch('/recognize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ imageData })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    result.textContent = data.message;
+                    if (data.message.includes("Person identified")) {
+                        result.style.color = "green";
+                        const foodData = JSON.parse(data.foodData);
+                        foodList.innerHTML = `
+                            <li>Juice: ${foodData.juice}</li>
+                            <li>Burger: ${foodData.burger}</li>
+                            <li>Chips: ${foodData.chips}</li>
+                        `;
+                        finalCost.textContent = `Total Cost: $${foodData.totalCost}`;
+                        foodItems.style.display = 'block';
+                    } else {
+                        result.style.color = "red";
+                        foodItems.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error recognizing face:', error);
+                });
+            }
+
+            // Check face at regular intervals
+            setInterval(checkFace, 3000); // every 3 seconds
+        });
+    </script>
+</body>
+</html>
